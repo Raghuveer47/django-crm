@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+  
+</head>
+<body>
+   {% include 'webapp/navbar.html'%}
+    <div class="container">
+        <h2>Home Page</h2>
+        <p>Welcome to the home page!</p>
+        
+        {% if user.is_authenticated %}
+            <p>Hello, {{ user.username }}!</p>
+        {% endif %}
+    </div>
+</body>
+</html>
