@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import create_receipt, view_receipt
+from .views import create_invoice, view_invoice
 
 urlpatterns = [
     path('', views.home, name='index'),
@@ -20,6 +20,6 @@ urlpatterns = [
 
     #reciept 
 
-     path('receipt/create/', create_receipt, name='create_receipt'),
-    path('receipt/<int:pk>/', view_receipt, name='view_receipt'),
+     path('receipt/create/', create_invoice, name='create_invoice'),
+    path('receipt/<int:pk>/', view_invoice, name='view_invoice'),
 ]

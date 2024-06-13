@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Details</title>
+    <style>
+        body {
+            margin-top: 20px;
+            background-color: #eee;
+        }
+        .card {
+            box-shadow: 0 20px 27px 0 rgb(0 0 0 / 5%);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            word-wrap: break-word;
+            background-color: #fff;
+            background-clip: border-box;
+            border: 0 solid rgba(0, 0, 0, .125);
+            border-radius: 1rem;
+            padding: 20px;
+        }
+        .invoice-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .company-logo {
+            height: 150px;
+            width: 250px;
+        }
+        .company-info {
+            font-size: 10px;
+            font-weight: bold;
+            text-align: right;
+        }
+        #invoice-content {
+            margin: 0 auto;
+            width: 210mm; /* A4 width */
+            max-width: 210mm;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.1/css/all.min.css" integrity="sha256-2XFplPlrFClt0bIdPgpz8H7ojnk10H69xRqd9+uTShA=" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+    {% load static %}
+    {% include 'webapp/navbar.html' %}
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-lg-12">
+                <div class="card">
+                    <div class="card-body" id="invoice-content">
+                        <div class="invoice-title">
+                            <img src="{% static 'images.png' %}" class="company-logo" style="margin-bottom: 80px;" />
+                            <div class="company-info">
+                                <p>Fortune Heights, 52-1 /  8-11, Plot No's-8 & 9, Road No-2,<br> NTR Colony, Vijayawada, Andhra Pradesh 520008</p>
+                                <p><i class="fa fa-envelope "></i> infodatavalley@datavalley.ai</p>
+                                <p><i class="fa fa-phone me-1"></i> 9256899199</p>
+                                <h4 class="font-size-15">Invoice #{{ invoice.invoice_no }} <span class="badge bg-success font-size-12 ms-2">Paid</span></h4>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <div class="text-muted">
+                                    <h5 class="font-size-16 mb-3">Billed To:</h5>
+                                    <h5 class="font-size-15 mb-2">{{ invoice.billed_to_name }}</h5>
+                                    <p class="mb-1">{{ invoice.billed_to_email }}</p>
+                                    <p class="mb-1">{{ invoice.description }}</p>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="text-muted text-sm-end">
+                                    <div>
+                                        <h5 class="font-size-15 mb-1">Invoice No:</h5>
+                                        <p>#{{ invoice.invoice_no }}</p>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h5 class="font-size-15 mb-1">Invoice Date:</h5>
+                                        <p>{{ invoice.date }}</p>
+                                    </div>
+                                    <div class="mt-4">
+                                        <h5 class="font-size-15 mb-1">Order No:</h5>
+                                        <p>#{{ invoice.order_no }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="py-2">
+                            <h5 class="font-size-15">Order Summary</h5>
+                            <div class="table-responsive">
+                                <table class="table align-middle table-nowrap table-centered mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 70px;">No.</th>
+                                            <th>Item</th>
+                                            <th>Price</th>
+                                            <th>Quantity</th>
+                                            <th class="text-end" style="width: 120px;">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in invoice.item_details.all %}
+                                            <tr>
+                                                <th scope="row">{{ forloop.counter }}</th>
+                                                <td>
+                                                    <div>
+                                                        <h5 class="text-truncate font-size-14 mb-1">{{ item.name }}</h5>
+                                                    </div>
+                                                </td>
+                                                <td>${{ item.price|floatformat:2 }}</td>
+                                                <td>{{ item.quantity }}</td>
+                                                <td class="text-end">${{ item.total|floatformat:2 }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                        <tr>
+                                            <th scope="row" colspan="4" class="text-end">Sub Total</th>
+                                            <td class="text-end">₹{{ total_amount|floatformat:2 }}</td>
+                                        </tr>
+                                        
+                                        <tr>
+                                            <th scope="row" colspan="4" class="border-0 text-end">Total</th>
+                                            <td class="border-0 text-end"><h4 class="m-0 fw-semibold">₹{{ invoice.total_amount|floatformat:2 }}</h4></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-print-none mt-4">
+                               
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div class="float-end">
+                        <a href="javascript:window.print()" class="btn btn-success me-1"><i class="fa fa-print"></i> Print</a>
+                        <a href="#" class="btn btn-primary w-md" onclick="downloadPDF()">Download as PDF</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const content = document.getElementById("invoice-content");
+
+            // Use html2canvas to capture the invoice content
+            html2canvas(content, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = doc.internal.pageSize.getHeight();
+                const imgProps = doc.getImageProperties(imgData);
+                const imgHeight = imgProps.height * pdfWidth / imgProps.width;
+
+                let y = 0;
+                while (y < imgHeight) {
+                    doc.addImage(imgData, 'PNG', 0, y, pdfWidth, imgHeight - y > pdfHeight ? pdfHeight : imgHeight - y);
+                    y += pdfHeight;
+                    if (y < imgHeight) doc.addPage();
+                }
+
+                doc.save('invoice.pdf');
+            });
+        }
+    </script>
+</body>
+</html>

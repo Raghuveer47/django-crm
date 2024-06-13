@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Receipt</title>
+    <title>Create Invoice</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css">
 </head>
 <body>
     {% include 'webapp/navbar.html' %}
     <div class="container mt-5">
-        <h2>Create Cash Receipt</h2>
+        <h2>Create Invoice</h2>
         <form method="post">
             {% csrf_token %}
             {{ form.as_p }}
-            <button type="submit" class="btn btn-primary">Create Receipt</button>
+            {{ formset.management_form }}
+            {% for form in formset %}
+                {{ form.as_p }}
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Create Invoice</button>
         </form>
     </div>
 </body>

@@ -1,15 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import AuthenticationForm
-from .forms import RegisterForm, LoginForm, UpdateForm, RecordForm  # Ensure you import RecordForm
+from .forms import RegisterForm, LoginForm, UpdateForm, RecordForm, InvoiceForm, ItemDetailFormSet, UploadCSVForm
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from .models import CashReceipt
-from .forms import CashReceiptForm
-from .forms import UploadCSVForm
+from .models import Invoice, Record
 from django.db.models import Q
 import csv
-from .models import Record
+from django.db.models import Sum
+from django.db.models import F, ExpressionWrapper, FloatField
 
 def home(request):
     return render(request, 'webapp/index.html')
@@ -28,14 +27,6 @@ def register_view(request):
     else:
         form = RegisterForm()
     return render(request, 'webapp/register.html', {'form': form})
-
-def send_welcome_email(email, username):
-    subject = 'Welcome to Our Website'
-    message = f'Hi {username},\n\nThank you for registering at our website. We are thrilled to have you on board!\n\nBest regards,\nThe Team'
-    from_email = 'your_email@example.com'
-    recipient_list = [email]
-    send_mail(subject, message, from_email, recipient_list)
-
 
 def send_welcome_email(email, username):
     subject = 'Welcome to Our Website'
@@ -64,15 +55,14 @@ def logout_view(request):
 
 @login_required(login_url='login')
 def dashboard(request):
-
-    myrecords = Record.objects.all()
-
-    context = {'records': myrecords}
-
-    return render(request, 'webapp/dashboard.html', context=context)
-
-
-#crud
+    query = request.GET.get('query', '')
+    if query:
+        records = Record.objects.filter(Q(firstname__icontains=query) | Q(lastname__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query) | Q(city__icontains=query) | Q(college__icontains=query))
+        invoices = Invoice.objects.filter(Q(invoice_no__icontains=query) | Q(description__icontains=query))
+    else:
+        records = Record.objects.all().order_by('id')
+        invoices = Invoice.objects.all().order_by('id')
+    return render(request, 'webapp/dashboard.html', {'records': records, 'invoices': invoices})
 
 @login_required(login_url='login')
 def create(request):
@@ -83,36 +73,23 @@ def create(request):
             return redirect('dashboard')
     else:
         form = RecordForm()
-    
-    context = {"form": form}
-    return render(request, 'webapp/create_record.html', context)
+    return render(request, 'webapp/create_record.html', {'form': form})
 
 @login_required(login_url='login')
 def update(request, pk):
     record = get_object_or_404(Record, id=pk)
     form = UpdateForm(instance=record)
-
     if request.method == 'POST':
         form = UpdateForm(request.POST, instance=record)
         if form.is_valid():
             form.save()
             return redirect('dashboard')
+    return render(request, 'webapp/update.html', {'form': form})
 
-    context = {'form': form}
-    return render(request, 'webapp/update.html', context=context)
-
-
-
-@login_required(login_url='my-login')
+@login_required(login_url='login')
 def singular_record(request, pk):
-
-    all_records = Record.objects.get(id=pk)
-
-    context = {'record':all_records}
-
-    return render(request, 'webapp/viewrecord.html', context=context)
-
-
+    record = get_object_or_404(Record, id=pk)
+    return render(request, 'webapp/viewrecord.html', {'record': record})
 
 @login_required(login_url='login')
 def upload_csv(request):
@@ -136,57 +113,43 @@ def upload_csv(request):
         form = UploadCSVForm()
     return render(request, 'webapp/upload_csv.html', {'form': form})
 
-
-@login_required(login_url='my-login')
+@login_required(login_url='login')
 def delete_record(request, pk):
-
-    record = Record.objects.get(id=pk)
-
+    record = get_object_or_404(Record, id=pk)
     record.delete()
-
-    
-
     return redirect("dashboard")
 
-from django.shortcuts import render
-from .models import Record
-
 @login_required(login_url='login')
-def dashboard(request):
-    query = request.GET.get('query', '')
-    if query:
-        records = Record.objects.filter(Q(firstname__icontains=query) | Q(lastname__icontains=query) | Q(email__icontains=query) | Q(phone__icontains=query) | Q(city__icontains=query) | Q(college__icontains=query))
-        receipts = CashReceipt.objects.filter(Q(receipt_number__icontains=query) | Q(description__icontains=query))
-    else:
-        records = Record.objects.all().order_by('id')
-        receipts = CashReceipt.objects.all().order_by('id')
-    return render(request, 'webapp/dashboard.html', {'records': records, 'receipts': receipts})
-
-#reciept genrtion
-
-
-@login_required(login_url='login')
-def create_receipt(request):
+def create_invoice(request):
     if request.method == 'POST':
-        form = CashReceiptForm(request.POST)
-        if form.is_valid():
-            receipt = form.save(commit=False)
-            receipt.user = request.user
-            receipt.save()
-            send_receipt_email(receipt)
-            return redirect('dashboard')
+        form = InvoiceForm(request.POST)
+        formset = ItemDetailFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            invoice = form.save(commit=False)
+            invoice.user = request.user  # assuming user is logged in
+            invoice.save()
+            item_details = formset.save(commit=False)
+            for item in item_details:
+                item.invoice = invoice
+                item.save()
+            # send_receipt_email(invoice)  # Uncomment if you have this function
+            return redirect('view_invoice', pk=invoice.pk)
     else:
-        form = CashReceiptForm()
-    return render(request, 'webapp/create_receipt.html', {'form': form})
+        form = InvoiceForm()
+        formset = ItemDetailFormSet()
+    return render(request, 'webapp/create_invoice.html', {'form': form, 'formset': formset})
 
 @login_required(login_url='login')
-def view_receipt(request, pk):
-    receipt = get_object_or_404(CashReceipt, pk=pk)
-    return render(request, 'webapp/view_receipt.html', {'receipt': receipt})
+def view_invoice(request, pk):
+    invoice = get_object_or_404(Invoice, pk=pk)
+    total_amount = invoice.item_details.annotate(
+        item_total=ExpressionWrapper(F('price') * F('quantity'), output_field=FloatField())
+    ).aggregate(total=Sum('item_total'))['total'] or 0
+    return render(request, 'webapp/view_invoice.html', {'invoice': invoice, 'total_amount': total_amount})
 
-def send_receipt_email(receipt):
-    subject = f'Receipt {receipt.receipt_number} Generated'
-    message = f'Hi {receipt.user.username},\n\nYour receipt has been generated.\n\nReceipt Details:\nReceipt Number: {receipt.receipt_number}\nDate: {receipt.date}\nAmount: {receipt.amount}\nGST Amount: {receipt.gst_amount}\nTotal Amount: {receipt.total_amount}\n\nDescription: {receipt.description}\n\nThank you!'
+def send_receipt_email(invoice):
+    subject = f'Invoice {invoice.invoice_no} Generated'
+    message = f'Hi {invoice.user.username},\n\nYour invoice has been generated.\n\nInvoice Details:\nInvoice Number: {invoice.invoice_no}\nDate: {invoice.date}\nTotal Amount: {invoice.total_amount}\n\nDescription: {invoice.description}\n\nThank you!'
     from_email = 'your_email@example.com'
-    recipient_list = [receipt.user.email]
+    recipient_list = [invoice.billed_to_email]
     send_mail(subject, message, from_email, recipient_list)
